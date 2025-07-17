@@ -476,8 +476,8 @@ def test_isdo_imports():
         
         # 測試數學模組
         print("  導入數學模組...")
-        from modules_forge.isdo.math.spectral_rk4 import SpectralRK4
-        from modules_forge.isdo.math.lie_group_ops import LieGroupOps
+        from modules_forge.isdo.numerics.spectral_rk4 import SpectralRK4
+        from modules_forge.isdo.numerics.lie_group_ops import LieGroupOps
         print("    ✓ 數學模組導入成功")
         
         # 測試採樣器模組

@@ -20,11 +20,11 @@ def test_core_module_imports():
 
     try:
         # 測試從 core 導入 VariationalODESystem
-        from modules_forge.isdo.core import VariationalODESystem
+        from ..isdo.core import VariationalODESystem
         print("✅ 成功從 core 導入 VariationalODESystem")
 
         # 測試直接導入
-        from modules_forge.isdo.core.variational_ode_system import (
+        from ..isdo.core.variational_ode_system import (
             VariationalODESystem,
             SpectralDynamics,
             AdaptiveStepSizeController,
@@ -33,7 +33,7 @@ def test_core_module_imports():
         print("✅ 成功導入所有 VariationalODESystem 組件")
 
         # 測試其他核心模組
-        from modules_forge.isdo.core import (
+        from ..isdo.core import (
             SpectralBasis,
             HilbertSpace,
             VariationalController,
@@ -52,14 +52,14 @@ def test_variational_ode_system_initialization():
     print("\n=== 測試 VariationalODESystem 初始化 ===")
 
     try:
-        from modules_forge.isdo.core import VariationalODESystem
+        from ..isdo.core import VariationalODESystem
 
         # 基本初始化
         ode_system = VariationalODESystem(
             spatial_dims=(64, 64),
             spectral_order=128,
             sobolev_order=1.5,
-            regularization_lambda=0.01,
+            regularization_lambda=1e-4,
             sobolev_penalty=0.001
         )
 
@@ -89,7 +89,7 @@ def test_samplers_module_integration():
 
     try:
         # 測試採樣器模組不再直接導入 VariationalODESystem
-        from modules_forge.isdo.samplers import ISDOSampler, UnifiedModelWrapper, sample_isdo
+        from ..isdo.samplers import ISDOSampler, UnifiedModelWrapper, sample_isdo
         print("✅ 成功導入採樣器模組")
 
         # 測試 ISDO 採樣器可以間接使用 VariationalODESystem（通過核心模組）
@@ -110,8 +110,8 @@ def test_variational_ode_functionality():
     print("\n=== 測試 VariationalODESystem 基本功能 ===")
 
     try:
-        from modules_forge.isdo.core import VariationalODESystem
-        from modules_forge.isdo.samplers import UnifiedModelWrapper
+        from ..isdo.core import VariationalODESystem
+        from ..isdo.samplers import UnifiedModelWrapper
 
         # 創建測試模型
         class MockModel:
@@ -166,7 +166,7 @@ def test_forge_integration():
 
     try:
         # 測試整合模組
-        from modules_forge.isdo_samplers_integration import ISDOSamplerWrapper, samplers_data_isdo
+        from ..isdo_samplers_integration import ISDOSamplerWrapper, samplers_data_isdo
         print("✅ 成功導入 ISDO 整合模組")
 
         # 檢查採樣器數據

@@ -34,7 +34,7 @@ class SpectralDynamics:
         self,
         spectral_basis: SpectralBasis,
         hilbert_space: HilbertSpace,
-        regularization_lambda: float = 0.01,
+        regularization_lambda: float = 1e-4,
         sobolev_penalty: float = 0.001
     ):
         """
@@ -353,7 +353,7 @@ class VariationalODESystem:
         spatial_dims: Tuple[int, ...],
         spectral_order: int = 256,
         sobolev_order: float = 1.5,
-        regularization_lambda: float = 0.01,
+        regularization_lambda: float = 1e-4,
         sobolev_penalty: float = 0.001,
         basis_type: BasisType = BasisType.FOURIER,
         device: Optional[torch.device] = None

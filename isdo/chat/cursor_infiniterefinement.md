@@ -115,7 +115,7 @@ current_loss = self._compute_refinement_loss(x_perturbed, perturbed_target)
 
 ### 基礎使用
 ```python
-from modules_forge.isdo.math import InfiniteRefinement, LieGroupOps
+from modules_forge.isdo.numerics import InfiniteRefinement, LieGroupOps
 from modules_forge.isdo.core import SpectralProjection
 
 # 初始化組件
@@ -208,7 +208,7 @@ current_loss = self._compute_refinement_loss(x_perturbed, perturbed_target)
 ```
 
 ```python
-from modules_forge.isdo.math import InfiniteRefinement, LieGroupOps
+from modules_forge.isdo.numerics import InfiniteRefinement, LieGroupOps
 from modules_forge.isdo.core import SpectralProjection
 
 # 初始化組件
@@ -590,7 +590,7 @@ def test_infinite_refinement_integration():
     
     try:
         from modules_forge.isdo.samplers import ISDOSampler, UnifiedModelWrapper
-        from modules_forge.isdo.math import InfiniteRefinement, LieGroupOps
+        from modules_forge.isdo.numerics import InfiniteRefinement, LieGroupOps
         
         # 創建測試模型
         class MockDenoiser:
@@ -733,7 +733,7 @@ def test_refinement_parameters():
     print(f"\n=== 測試細化參數效果 ===")
     
     try:
-        from modules_forge.isdo.math import InfiniteRefinement
+        from modules_forge.isdo.numerics import InfiniteRefinement
         
         # 測試不同參數配置
         configs = [
@@ -822,7 +822,7 @@ print(f"細化迭代數: {refined_result['iterations_used']}")
 print(f"對稱性改善: {refined_result['symmetry_improvement']['improvement_ratio']:.2%}")
 
 # 4. 獨立使用 InfiniteRefinement
-from modules_forge.isdo.math import InfiniteRefinement
+from modules_forge.isdo.numerics import InfiniteRefinement
 
 refinement_system = InfiniteRefinement(
     spatial_dims=(64, 64),
@@ -935,7 +935,7 @@ print(f"對稱性改善: {refined_result['symmetry_improvement']['improvement_ra
 
 ### **獨立使用**
 ```python
-from modules_forge.isdo.math import InfiniteRefinement
+from modules_forge.isdo.numerics import InfiniteRefinement
 
 refinement_system = InfiniteRefinement(
     spatial_dims=(64, 64),
@@ -1035,7 +1035,7 @@ print(f"對稱性改善: {refined_result['symmetry_improvement']['improvement_ra
 ```
 
 ```python
-from modules_forge.isdo.math import InfiniteRefinement
+from modules_forge.isdo.numerics import InfiniteRefinement
 
 refinement_system = InfiniteRefinement(
     spatial_dims=(64, 64),

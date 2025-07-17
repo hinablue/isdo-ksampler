@@ -37,7 +37,7 @@ class ActionIntegral:
 
     def __init__(
         self,
-        regularization_lambda: float = 0.01,
+        regularization_lambda: float = 1e-4,
         curvature_penalty: float = 0.001,
         domain_size: Tuple[float, ...] = (1.0, 1.0)
     ):
@@ -436,7 +436,7 @@ class VariationalController:
     def __init__(
         self,
         spatial_dims: Tuple[int, ...],
-        regularization_lambda: float = 0.01,
+        regularization_lambda: float = 1e-4,
         curvature_penalty: float = 0.001,
         sobolev_order: float = 1.0,
         device: Optional[torch.device] = None
@@ -690,22 +690,36 @@ class VariationalController:
     ) -> torch.Tensor:
         """
         計算正則化修正項
+
+        修正項是 Sobolev 範數的梯度: -λ ∇_x ||x||_H^s
         """
-        # 計算 f 的梯度
-        grad_f = self.action_integral._approximate_gradient(f_denoiser)
+        if self.action_integral.lambda_reg == 0:
+            return torch.zeros_like(x)
 
-        # 正則化修正: -λ ∇(|∇f|²) / 2
-        grad_correction = self._compute_gradient_correction(grad_f)
+        # 設置 x 需要梯度
+        x_hat = x.clone().detach().requires_grad_(True)
 
-        # 曲率修正
-        curvature_correction = self._compute_curvature_correction(x)
+        # 計算 Sobolev 範數的平方
+        # 我們使用平方來避免在零點的奇異性，並且梯度計算更簡單
+        sobolev_norm_sq = self.hilbert_space.compute_sobolev_norm(x_hat).pow(2)
 
-        total_correction = (
-            -self.action_integral.lambda_reg * grad_correction / 2 +
-            -self.action_integral.curvature_penalty * curvature_correction
-        )
+        # 計算總和以便反向傳播
+        sobolev_norm_sq_sum = sobolev_norm_sq.sum()
 
-        return total_correction
+        # 計算梯度
+        sobolev_norm_sq_sum.backward()
+
+        # 梯度是 ∇_x (||x||_H^s)² = 2 * ||x||_H^s * ∇_x ||x||_H^s
+        # 這就是我們需要的修正向量（方向）
+        sobolev_gradient = x_hat.grad.detach()
+
+        # 應用正則化參數
+        # 注意：在 _solve_optimal_control_step 中，這個修正項是相加的，
+        # 但理論上應該是減去梯度。因此，我們在這裡返回負梯度。
+        # optimal_control = drift_term - correction
+        correction = self.action_integral.lambda_reg * sobolev_gradient
+
+        return correction
 
     def _compute_gradient_correction(self, grad_f: torch.Tensor) -> torch.Tensor:
         """

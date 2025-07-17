@@ -24,9 +24,9 @@ from ..core.spectral_basis import SpectralBasis, BasisType
 from ..core.hilbert_space import HilbertSpace
 from ..core.variational_controller import VariationalController
 from ..core.spectral_projection import SpectralProjection
-from ..math.spectral_rk4 import SpectralRK4
-from ..math.lie_group_ops import LieGroupOps
-from ..math.infinite_refinement import InfiniteRefinement
+from ..numerics.spectral_rk4 import SpectralRK4
+from ..numerics.lie_group_ops import LieGroupOps
+from ..numerics.infinite_refinement import InfiniteRefinement
 from .unified_model_wrapper import UnifiedModelWrapper
 
 
@@ -54,7 +54,7 @@ class ISDOSampler:
         spatial_dims: Tuple[int, ...] = (64, 64),
         spectral_order: int = 256,
         sobolev_order: float = 1.5,
-        regularization_lambda: float = 0.01,
+        regularization_lambda: float = 1e-4, # Adjusted from 0.01
         curvature_penalty: float = 0.001,
         refinement_iterations: int = 1000,
         adaptive_scheduling: bool = True,
@@ -806,7 +806,7 @@ def sample_isdo(
     # ISDO 參數
     spectral_order: int = 256,
     sobolev_order: float = 1.5,
-    regularization_lambda: float = 0.01,
+    regularization_lambda: float = 1e-4, # Adjusted from 0.01
     refinement_iterations: int = 1000,
     adaptive_scheduling: bool = True,
     lie_group_refinement: bool = True

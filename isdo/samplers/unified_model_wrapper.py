@@ -111,18 +111,57 @@ class UnifiedModelWrapper:
         **kwargs
     ) -> torch.Tensor:
         """
-        統一調用接口
+        統一調用接口，包含對 Classifier-Free Guidance 的處理
 
         Args:
             x: 噪聲圖像 (B, C, H, W)
             sigma: 噪聲水平 (B,) 或標量
-            **kwargs: 額外參數
+            **kwargs: 額外參數，可能包含 'cond', 'uncond', 'cond_scale'
 
         Returns:
             x0_pred: 預測的乾淨圖像 D(x; σ)
         """
+        # 檢查是否需要 CFG
+        cond = kwargs.get('cond', None)
+        uncond = kwargs.get('uncond', None)
+        cond_scale = kwargs.get('cond_scale', 1.0)
+
+        # 如果沒有提供引導參數，則直接調用
+        if cond is None or uncond is None or cond_scale == 1.0:
+            return self._get_x0_pred(x, sigma, **kwargs)
+
+        # --- CFG 邏輯 ---
+        # 1. 分別計算條件性和非條件性預測
+        
+        # 準備條件性預測的參數
+        cond_kwargs = kwargs.copy()
+        cond_kwargs['cond'] = cond
+        
+        # 準備非條件性預測的參數
+        uncond_kwargs = kwargs.copy()
+        uncond_kwargs['cond'] = uncond # 模型通常期望 'cond' 參數
+        
+        # 計算 x0 預測
+        x0_cond_pred = self._get_x0_pred(x, sigma, **cond_kwargs)
+        x0_uncond_pred = self._get_x0_pred(x, sigma, **uncond_kwargs)
+
+        # 2. 應用引導
+        # 公式: x0 = uncond + guidance_scale * (cond - uncond)
+        x0_pred = x0_uncond_pred + cond_scale * (x0_cond_pred - x0_uncond_pred)
+
+        return x0_pred
+
+    def _get_x0_pred(
+        self,
+        x: torch.Tensor,
+        sigma: torch.Tensor,
+        **kwargs
+    ) -> torch.Tensor:
+        """
+        內部函數，計算單個 x0 預測（無 CFG）
+        """
         # 確保 sigma 的形狀正確
-        if sigma.dim() == 0:  # 標量
+        if sigma.dim() == 0:
             sigma = sigma.expand(x.shape[0])
         elif sigma.dim() == 1 and sigma.shape[0] != x.shape[0]:
             sigma = sigma.expand(x.shape[0])

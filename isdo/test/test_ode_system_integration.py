@@ -20,8 +20,8 @@ def test_variational_controller_ode_integration():
     print("=== 測試 VariationalController ODE 整合 ===")
 
     try:
-        from modules_forge.isdo.core import VariationalController
-        from modules_forge.isdo.samplers import UnifiedModelWrapper
+        from ..isdo.core import VariationalController
+        from ..isdo.samplers import UnifiedModelWrapper
 
         # 創建測試模型
         class MockDenoiser:
@@ -38,7 +38,7 @@ def test_variational_controller_ode_integration():
         # 初始化變分控制器
         controller = VariationalController(
             spatial_dims=(32, 32),
-            regularization_lambda=0.01,
+            regularization_lambda=1e-4,
             curvature_penalty=0.001,
             device=torch.device('cpu')
         )
@@ -98,7 +98,7 @@ def test_isdo_sampler_ode_integration():
     print("\n=== 測試 ISDOSampler ODE 整合 ===")
 
     try:
-        from modules_forge.isdo.samplers import ISDOSampler, UnifiedModelWrapper
+        from ..isdo.samplers import ISDOSampler, UnifiedModelWrapper
 
         # 創建測試模型
         class MockDenoiser:
@@ -185,8 +185,8 @@ def test_spectral_projection_ode_integration():
     print("\n=== 測試 SpectralProjection ODE 整合 ===")
 
     try:
-        from modules_forge.isdo.core import SpectralProjection
-        from modules_forge.isdo.samplers import UnifiedModelWrapper
+        from ..isdo.core import SpectralProjection
+        from ..isdo.samplers import UnifiedModelWrapper
 
         # 創建譜投影系統
         projection = SpectralProjection(
@@ -267,8 +267,8 @@ def test_performance_comparison():
 
     try:
         import time
-        from modules_forge.isdo.core import VariationalController
-        from modules_forge.isdo.samplers import UnifiedModelWrapper
+        from ..isdo.core import VariationalController
+        from ..isdo.samplers import UnifiedModelWrapper
 
         # 創建測試設置
         class MockDenoiser:

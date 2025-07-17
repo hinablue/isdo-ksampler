@@ -15,8 +15,8 @@ def test_infinite_refinement_integration():
     print("\n=== 測試 InfiniteRefinement 整合 ===")
 
     try:
-        from modules_forge.isdo.samplers import ISDOSampler, UnifiedModelWrapper
-        from modules_forge.isdo.math import InfiniteRefinement, LieGroupOps
+        from ..isdo.samplers import ISDOSampler, UnifiedModelWrapper
+        from ..isdo.numerics import InfiniteRefinement, LieGroupOps
 
         # 創建測試模型
         class MockDenoiser:
@@ -159,7 +159,7 @@ def test_refinement_parameters():
     print(f"\n=== 測試細化參數效果 ===")
 
     try:
-        from modules_forge.isdo.math import InfiniteRefinement
+        from isdo.numerics import InfiniteRefinement
 
         # 測試不同參數配置
         configs = [
@@ -212,8 +212,8 @@ def demonstrate_usage():
     # 使用示例代碼
     example_code = '''
 # 1. 基本使用方式
-from modules_forge.isdo.samplers import ISDOSampler
-from modules_forge.isdo.samplers import UnifiedModelWrapper
+from ..isdo.samplers import ISDOSampler
+from ..isdo.samplers import UnifiedModelWrapper
 
 # 包裝您的模型
 model_wrapper = UnifiedModelWrapper(your_model)
@@ -248,7 +248,7 @@ print(f"細化迭代數: {refined_result['iterations_used']}")
 print(f"對稱性改善: {refined_result['symmetry_improvement']['improvement_ratio']:.2%}")
 
 # 4. 獨立使用 InfiniteRefinement
-from modules_forge.isdo.math import InfiniteRefinement
+from isdo.numerics import InfiniteRefinement
 
 refinement_system = InfiniteRefinement(
     spatial_dims=(64, 64),

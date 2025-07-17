@@ -31,14 +31,14 @@ _Exported on 2025/7/17 at 11:51:37 [GMT+8] from Cursor (1.2.4)_
 
 ## 總結發現：
 
-1. **檔案缺失**：在 `modules_forge/isdo/math/` 目錄中，只有以下檔案：
+1. **檔案缺失**：在 `modules_forge/isdo/numerics/` 目錄中，只有以下檔案：
    - `__init__.py`
    - `lie_group_ops.py` 
    - `spectral_rk4.py`
    
    但缺少 `infinite_refinement.py`
 
-2. **導入錯誤**：在 `modules_forge/isdo/math/__init__.py` 中有這行導入：
+2. **導入錯誤**：在 `modules_forge/isdo/numerics/__init__.py` 中有這行導入：
    ```python
    from .infinite_refinement import InfiniteRefinement
    ```
@@ -592,7 +592,7 @@ class InfiniteRefinement:
 ### 📁 **檔案狀態**
 
 ```
-modules_forge/isdo/math/
+modules_forge/isdo/numerics/
 ├── __init__.py              ✅ 正確導入
 ├── lie_group_ops.py         ✅ 已存在
 ├── spectral_rk4.py          ✅ 已存在  
@@ -604,7 +604,7 @@ modules_forge/isdo/math/
 您現在可以在 ISDO 採樣器中使用這個模組來執行李群對稱性修正和拓撲結構保持了！
 
 ```plaintext
-modules_forge/isdo/math/
+modules_forge/isdo/numerics/
 ├── __init__.py              ✅ 正確導入
 ├── lie_group_ops.py         ✅ 已存在
 ├── spectral_rk4.py          ✅ 已存在  

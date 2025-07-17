@@ -37,7 +37,7 @@ def to_d(x, sigma, denoised):
 
 @torch.no_grad()
 def sample_isdo_standard(model, x, sigmas, extra_args=None, callback=None, disable=None,
-                        spectral_order=256, sobolev_order=1.5, regularization_lambda=0.01):
+                        spectral_order=256, sobolev_order=1.5, regularization_lambda=1e-4):
     """
     ISDO Standard 採樣器 - 標準變分最優控制
 
@@ -93,37 +93,39 @@ def sample_isdo_standard(model, x, sigmas, extra_args=None, callback=None, disab
         sigma_current = sigmas[i]
         sigma_next = sigmas[i + 1]
 
-        # 獲取去噪預測
-        denoised = model(x, sigma_current * s_in, **extra_args)
-
         if use_isdo:
             # 使用 ISDO 變分最優控制步驟
             try:
+                # ISDO 內部會調用模型
                 x = _isdo_variational_step(
-                    x, sigma_current, sigma_next, denoised,
+                    x, sigma_current, sigma_next, None, # denoised is now None
                     isdo_sampler, model, extra_args
                 )
             except Exception as e:
                 print(f"ISDO 步驟失敗，回退到 Euler: {e}")
                 print(traceback.format_exc())
-                # 回退到標準 Euler 步驟
+                # 回退時需要計算 denoised
+                denoised = model(x, sigma_current * s_in, **extra_args)
                 d = to_d(x, sigma_current, denoised)
                 dt = sigma_next - sigma_current
                 x = x + d * dt
         else:
             # 標準 Euler 方法
+            denoised = model(x, sigma_current * s_in, **extra_args)
             d = to_d(x, sigma_current, denoised)
             dt = sigma_next - sigma_current
             x = x + d * dt
 
         # 執行回調
         if callback is not None:
+            # 為了回調，我們需要計算一次 denoised
+            denoised_for_callback = model(x, sigma_current * s_in, **extra_args)
             callback({
                 'x': x,
                 'i': i,
                 'sigma': sigmas[i],
                 'sigma_hat': sigma_current,
-                'denoised': denoised
+                'denoised': denoised_for_callback
             })
 
     return x
@@ -131,7 +133,7 @@ def sample_isdo_standard(model, x, sigmas, extra_args=None, callback=None, disab
 
 @torch.no_grad()
 def sample_isdo_adaptive(model, x, sigmas, extra_args=None, callback=None, disable=None,
-                        spectral_order=512, sobolev_order=1.8, regularization_lambda=0.008):
+                        spectral_order=512, sobolev_order=1.8, regularization_lambda=1e-4):
     """
     ISDO Adaptive 採樣器 - 自適應譜調度
     """
@@ -168,33 +170,34 @@ def sample_isdo_adaptive(model, x, sigmas, extra_args=None, callback=None, disab
         sigma_current = sigmas[i]
         sigma_next = sigmas[i + 1]
 
-        denoised = model(x, sigma_current * s_in, **extra_args)
-
         if use_isdo:
             try:
                 # 自適應 ISDO 步驟
                 x = _isdo_adaptive_step(
-                    x, sigma_current, sigma_next, denoised,
+                    x, sigma_current, sigma_next, None, # denoised is now None
                     isdo_sampler, model, extra_args, i
                 )
             except Exception as e:
                 print(f"ISDO Adaptive 步驟失敗，回退到 Euler: {e}")
                 print(traceback.format_exc())
+                denoised = model(x, sigma_current * s_in, **extra_args)
                 d = to_d(x, sigma_current, denoised)
                 dt = sigma_next - sigma_current
                 x = x + d * dt
         else:
+            denoised = model(x, sigma_current * s_in, **extra_args)
             d = to_d(x, sigma_current, denoised)
             dt = sigma_next - sigma_current
             x = x + d * dt
 
         if callback is not None:
+            denoised_for_callback = model(x, sigma_current * s_in, **extra_args)
             callback({
                 'x': x,
                 'i': i,
                 'sigma': sigmas[i],
                 'sigma_hat': sigma_current,
-                'denoised': denoised
+                'denoised': denoised_for_callback
             })
 
     return x
@@ -202,7 +205,7 @@ def sample_isdo_adaptive(model, x, sigmas, extra_args=None, callback=None, disab
 
 @torch.no_grad()
 def sample_isdo_hq(model, x, sigmas, extra_args=None, callback=None, disable=None,
-                   spectral_order=1024, sobolev_order=2.0, regularization_lambda=0.005):
+                   spectral_order=1024, sobolev_order=2.0, regularization_lambda=1e-4):
     """
     ISDO HQ 採樣器 - 高質量模式 (更多細化)
     """
@@ -239,19 +242,18 @@ def sample_isdo_hq(model, x, sigmas, extra_args=None, callback=None, disable=Non
         sigma_current = sigmas[i]
         sigma_next = sigmas[i + 1]
 
-        denoised = model(x, sigma_current * s_in, **extra_args)
-
         if use_isdo:
             try:
                 # 高質量 ISDO 步驟 (包含李群細化)
                 x = _isdo_hq_step(
-                    x, sigma_current, sigma_next, denoised,
+                    x, sigma_current, sigma_next, None, # denoised is now None
                     isdo_sampler, model, extra_args, i
                 )
             except Exception as e:
                 print(f"ISDO HQ 步驟失敗，回退到 Heun: {e}")
                 print(traceback.format_exc())
                 # 回退到 Heun 方法 (更好的二階方法)
+                denoised = model(x, sigma_current * s_in, **extra_args)
                 d = to_d(x, sigma_current, denoised)
                 dt = sigma_next - sigma_current
                 if sigma_next == 0:
@@ -264,6 +266,7 @@ def sample_isdo_hq(model, x, sigmas, extra_args=None, callback=None, disable=Non
                     x = x + d_prime * dt
         else:
             # Heun 方法作為高質量回退
+            denoised = model(x, sigma_current * s_in, **extra_args)
             d = to_d(x, sigma_current, denoised)
             dt = sigma_next - sigma_current
             if sigma_next == 0:
@@ -276,12 +279,13 @@ def sample_isdo_hq(model, x, sigmas, extra_args=None, callback=None, disable=Non
                 x = x + d_prime * dt
 
         if callback is not None:
+            denoised_for_callback = model(x, sigma_current * s_in, **extra_args)
             callback({
                 'x': x,
                 'i': i,
                 'sigma': sigmas[i],
                 'sigma_hat': sigma_current,
-                'denoised': denoised
+                'denoised': denoised_for_callback
             })
 
     return x
@@ -289,7 +293,7 @@ def sample_isdo_hq(model, x, sigmas, extra_args=None, callback=None, disable=Non
 
 @torch.no_grad()
 def sample_isdo_fast(model, x, sigmas, extra_args=None, callback=None, disable=None,
-                     spectral_order=128, sobolev_order=1.2, regularization_lambda=0.015):
+                     spectral_order=128, sobolev_order=1.2, regularization_lambda=1e-4):
     """
     ISDO Fast 採樣器 - 快速模式 (減少細化)
     """
@@ -326,39 +330,40 @@ def sample_isdo_fast(model, x, sigmas, extra_args=None, callback=None, disable=N
         sigma_current = sigmas[i]
         sigma_next = sigmas[i + 1]
 
-        denoised = model(x, sigma_current * s_in, **extra_args)
-
         if use_isdo:
             try:
                 # 快速 ISDO 步驟
                 x = _isdo_fast_step(
-                    x, sigma_current, sigma_next, denoised,
+                    x, sigma_current, sigma_next, None, # denoised is now None
                     isdo_sampler, model, extra_args
                 )
             except Exception as e:
                 print(f"ISDO Fast 步驟失敗，回退到 Euler: {e}")
                 print(traceback.format_exc())
+                denoised = model(x, sigma_current * s_in, **extra_args)
                 d = to_d(x, sigma_current, denoised)
                 dt = sigma_next - sigma_current
                 x = x + d * dt
         else:
+            denoised = model(x, sigma_current * s_in, **extra_args)
             d = to_d(x, sigma_current, denoised)
             dt = sigma_next - sigma_current
             x = x + d * dt
 
         if callback is not None:
+            denoised_for_callback = model(x, sigma_current * s_in, **extra_args)
             callback({
                 'x': x,
                 'i': i,
                 'sigma': sigmas[i],
                 'sigma_hat': sigma_current,
-                'denoised': denoised
+                'denoised': denoised_for_callback
             })
 
     return x
 
 
-def _isdo_variational_step(x, sigma_current, sigma_next, denoised,
+def _isdo_variational_step(x, sigma_current, sigma_next,
                           isdo_sampler, model, extra_args):
     """
     執行單步 ISDO 變分最優控制
@@ -387,7 +392,7 @@ def _isdo_variational_step(x, sigma_current, sigma_next, denoised,
         return x + d * dt
 
 
-def _isdo_adaptive_step(x, sigma_current, sigma_next, denoised,
+def _isdo_adaptive_step(x, sigma_current, sigma_next,
                        isdo_sampler, model, extra_args, step_index):
     """
     執行自適應 ISDO 步驟
@@ -438,7 +443,7 @@ def _isdo_adaptive_step(x, sigma_current, sigma_next, denoised,
         return x + d * dt
 
 
-def _isdo_hq_step(x, sigma_current, sigma_next, denoised,
+def _isdo_hq_step(x, sigma_current, sigma_next,
                  isdo_sampler, model, extra_args, step_index):
     """
     執行高質量 ISDO 步驟 (包含李群細化)
@@ -486,7 +491,7 @@ def _isdo_hq_step(x, sigma_current, sigma_next, denoised,
             return x + d_prime * dt
 
 
-def _isdo_fast_step(x, sigma_current, sigma_next, denoised,
+def _isdo_fast_step(x, sigma_current, sigma_next,
                    isdo_sampler, model, extra_args):
     """
     執行快速 ISDO 步驟 (簡化版變分控制)
@@ -496,6 +501,7 @@ def _isdo_fast_step(x, sigma_current, sigma_next, denoised,
         spatial_dims = x.shape[-2:]
 
         # 直接在空間域執行簡化的變分修正
+        denoised = model(x, sigma_current * x.new_ones([x.shape[0]]), **extra_args)
         d_euler = to_d(x, sigma_current, denoised)
 
         # 計算 Sobolev 範數修正 (簡化版)

@@ -20,27 +20,27 @@ def test_isdo_imports():
     try:
         # 測試核心模組
         print("  導入核心模組...")
-        from modules_forge.isdo.core.spectral_basis import SpectralBasis
-        from modules_forge.isdo.core.hilbert_space import HilbertSpace
-        from modules_forge.isdo.core.variational_controller import VariationalController
-        from modules_forge.isdo.core.spectral_projection import SpectralProjection
+        from ..isdo.core.spectral_basis import SpectralBasis
+        from ..isdo.core.hilbert_space import HilbertSpace
+        from ..isdo.core.variational_controller import VariationalController
+        from ..isdo.core.spectral_projection import SpectralProjection
         print("    ✓ 核心模組導入成功")
 
         # 測試數學模組
         print("  導入數學模組...")
-        from modules_forge.isdo.math.spectral_rk4 import SpectralRK4
-        from modules_forge.isdo.math.lie_group_ops import LieGroupOps
+        from isdo.numerics.spectral_rk4 import SpectralRK4
+from isdo.numerics.lie_group_ops import LieGroupOps
         print("    ✓ 數學模組導入成功")
 
         # 測試採樣器模組
         print("  導入採樣器模組...")
-        from modules_forge.isdo.samplers.isdo_sampler import ISDOSampler, sample_isdo
-        from modules_forge.isdo.samplers.unified_model_wrapper import UnifiedModelWrapper
+        from ..isdo.samplers.isdo_sampler import ISDOSampler, sample_isdo
+        from ..isdo.samplers.unified_model_wrapper import UnifiedModelWrapper
         print("    ✓ 採樣器模組導入成功")
 
         # 測試整合模組
         print("  導入整合模組...")
-        from modules_forge.isdo_samplers_integration import (
+        from ..isdo_samplers_integration import (
             ISDOSamplerWrapper,
             samplers_data_isdo,
             register_isdo_samplers
@@ -63,7 +63,7 @@ def test_sampler_registration():
 
     try:
         # 導入註冊函數
-        from modules_forge.isdo_samplers_integration import (
+        from ..isdo_samplers_integration import (
             samplers_data_isdo,
             ISDO_SAMPLER_CONFIGS
         )
@@ -97,7 +97,7 @@ def test_basic_functionality():
 
     try:
         import torch
-        from modules_forge.isdo.samplers.isdo_sampler import ISDOSampler
+        from ..isdo.samplers.isdo_sampler import ISDOSampler
 
         # 創建測試採樣器
         print("  創建 ISDO 採樣器...")
@@ -138,7 +138,7 @@ def test_webui_integration():
 
         # 測試採樣器數據結構
         print("  檢查採樣器數據結構...")
-        from modules_forge.isdo_samplers_integration import samplers_data_isdo
+        from ..isdo_samplers_integration import samplers_data_isdo
 
         for sampler_data in samplers_data_isdo:
             # 檢查 SamplerData 結構
