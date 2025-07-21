@@ -114,7 +114,7 @@ class FFTSpectralProjection(SpectralProjector):
         spatial_dims: Tuple[int, ...],
         spectral_order: int = 256,
         device: Optional[torch.device] = None,
-        dtype: torch.dtype = torch.complex64
+        dtype: torch.dtype = torch.float32
     ):
         """
         初始化 FFT 譜投影

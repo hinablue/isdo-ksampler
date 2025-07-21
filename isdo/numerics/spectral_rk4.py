@@ -91,7 +91,7 @@ class SpectralRK4:
         denoised = model(x, s_in, **extra_args)
 
         # 計算漂移項 (簡化的變分動力學)
-        drift = (denoised - x) / (sigma + 1e-8)
+        drift = (x - denoised) / (sigma + 1e-8)
 
         # 投影回譜空間
         drift_coeffs = self.spectral_projection(drift, mode='forward')

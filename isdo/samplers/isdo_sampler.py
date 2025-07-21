@@ -165,6 +165,7 @@ class ISDOSampler:
                 device=self.device
             )
 
+    @torch.no_grad()
     def sample_isdo(
         self,
         model,

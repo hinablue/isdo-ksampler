@@ -41,7 +41,7 @@ class SpectralBasis:
         spectral_order: int = 256,
         basis_type: BasisType = BasisType.FOURIER,
         device: Optional[torch.device] = None,
-        dtype: torch.dtype = torch.complex64
+        dtype: torch.dtype = torch.float32
     ):
         """
         初始化譜基底
@@ -333,7 +333,8 @@ class SpectralBasis:
             x_recon = torch.zeros(self.H, self.W, device=self.device, dtype=self.dtype)
 
             for k in range(min(self.spectral_order, len(coefficients))):
-                x_recon += coefficients[k] * self.basis_functions[k]
+                norm_k = self.normalization_factors[k]
+                x_recon += coefficients[k] * norm_k**2 * self.basis_functions[k]
 
             return x_recon
 
@@ -343,9 +344,10 @@ class SpectralBasis:
 
             for k in range(min(self.spectral_order, coefficients.shape[-1])):
                 # 廣播相乘
+                norm_k = self.normalization_factors[k]
                 coeff_k = coefficients[:, :, k]  # (B, C)
                 basis_k = self.basis_functions[k]  # (H, W)
-                x_recon += coeff_k[:, :, None, None] * basis_k[None, None, :, :]
+                x_recon += coeff_k[:, :, None, None] * norm_k**2 * basis_k[None, None, :, :]
 
             return x_recon
         else:

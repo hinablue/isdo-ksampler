@@ -42,9 +42,6 @@ samplers_data_alter = [
 
 # 輸出可用的採樣器信息
 if samplers_data_isdo:
-    from .isdo_samplers_integration import register_isdo_samplers
-    register_isdo_samplers()
-
     print(f"已添加 {len(samplers_data_isdo)} 個 ISDO 採樣器到 alter_samplers")
     for sampler in samplers_data_isdo:
         print(f"  - {sampler.name}")

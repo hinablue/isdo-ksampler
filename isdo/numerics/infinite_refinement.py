@@ -328,20 +328,26 @@ class InfiniteRefinement:
     ) -> float:
         """結構化拓撲檢查"""
         # 計算梯度場的變化
-        grad_orig_x = torch.diff(x_original, dim=-1)
-        grad_orig_y = torch.diff(x_original, dim=-2)
+        grad_orig_x = torch.diff(x_original, dim=-1)  # [..., H, W-1]
+        grad_orig_y = torch.diff(x_original, dim=-2)  # [..., H-1, W]
         grad_curr_x = torch.diff(x_current, dim=-1)
         grad_curr_y = torch.diff(x_current, dim=-2)
 
+        # 對齊 shape 到 [..., H-1, W-1]
+        grad_orig_x_cropped = grad_orig_x[..., :-1, :]   # [..., H-1, W-1]
+        grad_orig_y_cropped = grad_orig_y[..., :, :-1]   # [..., H-1, W-1]
+        grad_curr_x_cropped = grad_curr_x[..., :-1, :]
+        grad_curr_y_cropped = grad_curr_y[..., :, :-1]
+
         # 梯度方向的變化
-        grad_orig_mag = torch.sqrt(grad_orig_x**2 + grad_orig_y**2 + 1e-8)
-        grad_curr_mag = torch.sqrt(grad_curr_x**2 + grad_curr_y**2 + 1e-8)
+        grad_orig_mag = torch.sqrt(grad_orig_x_cropped**2 + grad_orig_y_cropped**2 + 1e-8)
+        grad_curr_mag = torch.sqrt(grad_curr_x_cropped**2 + grad_curr_y_cropped**2 + 1e-8)
 
         # 正規化梯度
-        grad_orig_norm_x = grad_orig_x / grad_orig_mag
-        grad_orig_norm_y = grad_orig_y / grad_orig_mag
-        grad_curr_norm_x = grad_curr_x / grad_curr_mag
-        grad_curr_norm_y = grad_curr_y / grad_curr_mag
+        grad_orig_norm_x = grad_orig_x_cropped / grad_orig_mag
+        grad_orig_norm_y = grad_orig_y_cropped / grad_orig_mag
+        grad_curr_norm_x = grad_curr_x_cropped / grad_curr_mag
+        grad_curr_norm_y = grad_curr_y_cropped / grad_curr_mag
 
         # 計算梯度方向的相似性
         direction_similarity = (

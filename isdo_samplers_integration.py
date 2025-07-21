@@ -98,7 +98,7 @@ def sample_isdo_standard(model, x, sigmas, extra_args=None, callback=None, disab
             try:
                 # ISDO 內部會調用模型
                 x = _isdo_variational_step(
-                    x, sigma_current, sigma_next, None, # denoised is now None
+                    x, sigma_current, sigma_next,
                     isdo_sampler, model, extra_args
                 )
             except Exception as e:
@@ -174,7 +174,7 @@ def sample_isdo_adaptive(model, x, sigmas, extra_args=None, callback=None, disab
             try:
                 # 自適應 ISDO 步驟
                 x = _isdo_adaptive_step(
-                    x, sigma_current, sigma_next, None, # denoised is now None
+                    x, sigma_current, sigma_next,
                     isdo_sampler, model, extra_args, i
                 )
             except Exception as e:
@@ -246,7 +246,7 @@ def sample_isdo_hq(model, x, sigmas, extra_args=None, callback=None, disable=Non
             try:
                 # 高質量 ISDO 步驟 (包含李群細化)
                 x = _isdo_hq_step(
-                    x, sigma_current, sigma_next, None, # denoised is now None
+                    x, sigma_current, sigma_next,
                     isdo_sampler, model, extra_args, i
                 )
             except Exception as e:
@@ -334,7 +334,7 @@ def sample_isdo_fast(model, x, sigmas, extra_args=None, callback=None, disable=N
             try:
                 # 快速 ISDO 步驟
                 x = _isdo_fast_step(
-                    x, sigma_current, sigma_next, None, # denoised is now None
+                    x, sigma_current, sigma_next,
                     isdo_sampler, model, extra_args
                 )
             except Exception as e:
@@ -451,7 +451,7 @@ def _isdo_hq_step(x, sigma_current, sigma_next,
     try:
         # 首先執行標準變分步驟
         x_variational = _isdo_variational_step(
-            x, sigma_current, sigma_next, denoised,
+            x, sigma_current, sigma_next,
             isdo_sampler, model, extra_args
         )
 
@@ -556,6 +556,237 @@ def _short_lie_group_refinement(x, sigma, model, extra_args, isdo_sampler, num_s
         print(traceback.format_exc())
         return x
 
+@torch.no_grad()
+def sample_isdo_full(model, x, sigmas, extra_args=None, callback=None, disable=None,
+            spectral_order=64, sobolev_order=1.0, regularization_lambda=1e-3,
+            adaptive_scheduling=False, lie_group_refinement=False):
+    """
+    ISDO (Infinite Spectral Diffusion Odyssey) 採樣器。
+
+    結合變分最優控制、譜投影和李群對稱性保持，提供高質量的擴散模型採樣。
+
+    Args:
+        model: 去噪模型
+        x: 初始噪聲 (B, C, H, W)
+        sigmas: 噪聲水平序列 (T,)
+        extra_args: 額外參數
+        callback: 回調函數
+        disable: 是否禁用進度條
+        spectral_order: 譜截斷階數
+        sobolev_order: Sobolev 空間階數
+        regularization_lambda: 變分正則化參數
+        adaptive_scheduling: 是否使用自適應調度
+        lie_group_refinement: 是否使用李群細化
+
+    Returns:
+        x: 最終採樣結果
+    """
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+
+    # 初始化 ISDO 組件
+    try:
+        # 獲取空間維度
+        spatial_dims = x.shape[-2:]
+
+        # # 創建統一模型包裝器
+        model_wrapper = model
+
+        # 創建譜投影系統
+        from .isdo.core.spectral_projection import SpectralProjection
+        spectral_projection = SpectralProjection(
+            spatial_dims=spatial_dims,
+            spectral_order=spectral_order,
+            projection_type='adaptive' if adaptive_scheduling else 'fft',
+            device=x.device
+        )
+
+        # 創建希爾伯特空間
+        from .isdo.core.hilbert_space import HilbertSpace
+        hilbert_space = HilbertSpace(
+            spatial_dims=spatial_dims,
+            sobolev_order=sobolev_order,
+            device=x.device
+        )
+
+        # 創建變分控制器
+        from .isdo.core.variational_controller import VariationalController
+        variational_controller = VariationalController(
+            spatial_dims=spatial_dims,
+            regularization_lambda=regularization_lambda,
+            curvature_penalty=0.001,
+            sobolev_order=sobolev_order,
+            device=x.device
+        )
+
+        # 創建譜 RK4 求解器
+        from .isdo.numerics.spectral_rk4 import SpectralRK4
+        spectral_rk4 = SpectralRK4(
+            spectral_projection=spectral_projection,
+            variational_controller=variational_controller,
+            device=x.device
+        )
+
+        # 如果啟用李群細化，創建相關組件
+        if lie_group_refinement:
+            from .isdo.numerics.lie_group_ops import LieGroupOps
+            lie_group_ops = LieGroupOps(
+                spatial_dims=spatial_dims,
+                device=x.device
+            )
+
+            from .isdo.numerics.infinite_refinement import InfiniteRefinement
+            infinite_refinement = InfiniteRefinement(
+                spatial_dims=spatial_dims,
+                max_iterations=100,  # 限制最大迭代數
+                convergence_threshold=1e-5,
+                device=x.device
+            )
+
+        use_isdo = True
+
+    except Exception as e:
+        print(f"ISDO 初始化失敗，回退到 Euler 方法: {e}")
+        import traceback
+        print(traceback.format_exc())
+        use_isdo = False
+
+    # 主採樣循環
+    for i in trange(len(sigmas) - 1, disable=disable):
+        sigma_current = sigmas[i]
+        sigma_next = sigmas[i + 1]
+
+        if use_isdo:
+            try:
+                # print(f"[ISDO-FULL] Step {i}: sigma_current={sigma_current}, sigma_next={sigma_next}")
+                # 階段 1: 變分最優控制步驟
+                if adaptive_scheduling:
+                    # 投影到譜空間
+                    spectral_coeffs = spectral_projection(x, mode='forward')
+
+                    # 自適應步長控制
+                    # 嘗試全步長
+                    full_step_coeffs = spectral_rk4.step(
+                        spectral_coeffs, float(sigma_current), float(sigma_next),
+                        model_wrapper, extra_args
+                    )
+
+                    # 嘗試半步長
+                    sigma_mid = (sigma_current + sigma_next) / 2
+                    half_step1_coeffs = spectral_rk4.step(
+                        spectral_coeffs, float(sigma_current), float(sigma_mid),
+                        model_wrapper, extra_args
+                    )
+                    half_step2_coeffs = spectral_rk4.step(
+                        half_step1_coeffs, float(sigma_mid), float(sigma_next),
+                        model_wrapper, extra_args
+                    )
+
+                    # 估計局部誤差
+                    error_estimate = torch.norm(full_step_coeffs - half_step2_coeffs)
+                    # print(f"[ISDO-FULL] error_estimate={error_estimate.item():.6f}")
+
+                    # 根據誤差選擇結果
+                    if error_estimate > 0.01:  # 誤差閾值
+                        final_coeffs = half_step2_coeffs  # 使用更精確的半步長結果
+                        # print(f"[ISDO-FULL] Using half_step2_coeffs (more accurate)")
+                    else:
+                        final_coeffs = full_step_coeffs
+                        # print(f"[ISDO-FULL] Using full_step_coeffs")
+
+                    # print(f"[ISDO-FULL] final_coeffs norm={torch.norm(final_coeffs).item():.6f}")
+                    # 重建到空間域
+                    x = spectral_projection(final_coeffs, mode='inverse')
+
+                else:
+                    # 標準譜方法
+                    spectral_coeffs = spectral_projection(x, mode='forward')
+                    updated_coeffs = spectral_rk4.step(
+                        spectral_coeffs, float(sigma_current), float(sigma_next),
+                        model_wrapper, extra_args
+                    )
+                    # print(f"[ISDO-FULL] updated_coeffs norm={torch.norm(updated_coeffs).item():.6f}")
+                    x = spectral_projection(updated_coeffs, mode='inverse')
+
+                # print(f"[ISDO-FULL] x norm after spectral step: {torch.norm(x).item():.6f}")
+
+                # 階段 2: 李群對稱細化 (可選)
+                if lie_group_refinement and i % 5 == 0:  # 每5步細化一次
+                    # 檢測對稱性破壞
+                    violations = lie_group_ops.detect_symmetry_violations(x)
+                    # print(f"[ISDO-FULL] Symmetry violations before refinement: {violations}")
+
+                    if violations['total_violation'] > 0.01:  # 需要細化
+                        # 創建目標函數
+                        def target_function(x_input):
+                            sigma_tensor = torch.full(
+                                (x_input.shape[0],),
+                                float(sigma_next),
+                                device=x_input.device,
+                                dtype=x_input.dtype
+                            )
+                            return model_wrapper(x_input, sigma_tensor, **extra_args)
+
+                        # 執行無窮細化循環
+                        refinement_result = infinite_refinement.refinement_loop(
+                            x=x,
+                            target_function=target_function,
+                            lie_group_ops=lie_group_ops,
+                            spectral_projection=spectral_projection
+                        )
+
+                        # 提取細化結果
+                        refined_x = refinement_result['refined_tensor']
+
+                        # 驗證細化質量
+                        final_violations = lie_group_ops.detect_symmetry_violations(refined_x)
+                        improvement_ratio = (
+                            violations['total_violation'] - final_violations['total_violation']
+                        ) / (violations['total_violation'] + 1e-8)
+                        # print(f"[ISDO-FULL] Symmetry violations after refinement: {final_violations}")
+                        # print(f"[ISDO-FULL] improvement_ratio={improvement_ratio:.4f}")
+
+                        # 只有在確實改善的情況下才返回細化結果
+                        if improvement_ratio > 0.1:  # 改善至少 10%
+                            # print(f"[ISDO-FULL] Refinement applied (x updated)")
+                            x = refined_x
+                    #     else:
+                    #         print(f"[ISDO-FULL] Refinement NOT applied (insufficient improvement)")
+                    # else:
+                    #     print(f"[ISDO-FULL] No refinement needed (violations below threshold)")
+
+                print(f"[ISDO-FULL] x norm after possible refinement: {torch.norm(x).item():.6f}")
+
+            except Exception as e:
+                print(f"ISDO 步驟失敗，回退到 Euler: {e}")
+                import traceback
+                print(traceback.format_exc())
+                # 回退到標準 Euler 方法
+                denoised = model(x, sigma_current * s_in, **extra_args)
+                d = to_d(x, sigma_current, denoised)
+                dt = sigma_next - sigma_current
+                x = x + d * dt
+
+        else:
+            # 標準 Euler 方法
+            denoised = model(x, sigma_current * s_in, **extra_args)
+            d = to_d(x, sigma_current, denoised)
+            dt = sigma_next - sigma_current
+            x = x + d * dt
+
+        # 執行回調
+        if callback is not None:
+            # 為了回調，我們需要計算一次 denoised
+            denoised_for_callback = model(x, sigma_current * s_in, **extra_args)
+            callback({
+                'x': x,
+                'i': i,
+                'sigma': sigmas[i],
+                'sigma_hat': sigma_current,
+                'denoised': denoised_for_callback
+            })
+
+    return x
 
 # 創建採樣器構造函數
 def build_isdo_constructor(sampler_func):
@@ -616,6 +847,14 @@ samplers_data_isdo = [
             'second_order': False,
         }
     ),
+    sd_samplers_common.SamplerData(
+        'ISDO Full',
+        build_isdo_constructor(sample_isdo_full),
+        ['isdo_full', 'isdo_full_mode'],
+        {
+            'description': '完整 ISDO 模式，包含所有細化步驟',
+        }
+    )
 ]
 
 
